@@ -1,0 +1,145 @@
+#!/usr/bin/env -S sh -c 'exec "$(dirname "$0")/venv/bin/python" "$0" "$@"'
+"""TI-84 Plus program pipeline: build -> emulator test -> flash -> hardware check.
+
+  ./ti84 build  programs/foo/FOO.bas           tokenize + lint -> FOO.8xp
+  ./ti84 test   programs/foo                    build every .bas, run test_*.py in the emulator
+  ./ti84 run    programs/foo/FOO.bas [-i A ...] run once in the emulator, print screen
+  ./ti84 flash  programs/foo/FOO.8xp ...        send to the real calculator (USB)
+  ./ti84 hw     <subcommand>                    talk to the real calculator (see hw.py)
+"""
+import argparse
+import glob
+import importlib.util
+import os
+import subprocess
+import sys
+import time
+import traceback
+import warnings
+
+warnings.filterwarnings("ignore")
+ROOT = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(ROOT, "harness"))
+
+from tibasic import LintError, compile_file  # noqa: E402
+from ti84emu import TI84  # noqa: E402
+
+ARTIFACTS = os.path.join(ROOT, "out")
+
+
+def format_goto(lines, cursor, indent=""):
+    out = []
+    for r, l in enumerate(lines):
+        out.append("%s|%-16s|" % (indent, l))
+        if cursor and cursor[0] == r:
+            out.append("%s %s^" % (indent, " " * cursor[1]))
+    return "\n".join(out)
+
+
+def build(paths):
+    outs = []
+    for p in paths:
+        try:
+            outs.append(compile_file(p))
+            print("built %s" % os.path.relpath(outs[-1], ROOT))
+        except LintError as e:
+            print("LINT FAILED: %s\n%s" % (p, e))
+            sys.exit(1)
+    return outs
+
+
+def cmd_build(a):
+    build(a.files)
+
+
+def cmd_run(a):
+    progs = build([f for f in a.files if f.endswith(".bas")]) + [f for f in a.files if f.endswith(".8xp")]
+    calc = TI84()
+    for p in progs:
+        calc.send_file(p)
+    name = os.path.splitext(os.path.basename(progs[0]))[0]
+    screen = calc.run_program(name, inputs=a.input, settle=a.settle)
+    print("\n".join("|%-16s|" % l for l in screen))
+    err = calc.error()
+    if err:
+        print("ERR:%s -> Goto (^ = error position):" % err)
+        print(format_goto(*calc.goto_error()))
+    os.makedirs(ARTIFACTS, exist_ok=True)
+    print("screenshot: %s" % calc.png(os.path.join(ARTIFACTS, name + ".png")))
+
+
+def cmd_test(a):
+    d = a.dir
+    progs = build(sorted(glob.glob(os.path.join(d, "*.bas"))))
+    tests = []
+    for tf in sorted(glob.glob(os.path.join(d, "test_*.py"))):
+        spec = importlib.util.spec_from_file_location(os.path.basename(tf)[:-3], tf)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        tests += [(tf, n, getattr(mod, n)) for n in dir(mod) if n.startswith("test_") and callable(getattr(mod, n))]
+    os.makedirs(ARTIFACTS, exist_ok=True)
+    failed = 0
+    t0 = time.time()
+    for tf, n, fn in tests:
+        if a.k and a.k not in n:
+            continue
+        calc = TI84()
+        for p in progs:
+            calc.send_file(p)
+        try:
+            fn(calc)
+            print("PASS  %s" % n)
+        except Exception as e:
+            failed += 1
+            png = calc.png(os.path.join(ARTIFACTS, "FAIL_%s.png" % n))
+            print("FAIL  %s: %s: %s" % (n, type(e).__name__, e))
+            if not isinstance(e, AssertionError):
+                traceback.print_exc()
+            print("      screen: %r\n      screenshot: %s" % (calc.text(), png))
+            if calc.error():
+                print("      ERR:%s -> Goto (^ = error position):" % calc.error())
+                print(format_goto(*calc.goto_error(), indent="      "))
+        finally:
+            calc.close()
+    print("%d/%d passed in %.1fs" % (len(tests) - failed, len(tests), time.time() - t0))
+    sys.exit(1 if failed else 0)
+
+
+def cmd_flash(a):
+    for f in a.files:
+        if f.endswith(".bas"):
+            f = build([f])[0]
+        r = subprocess.run(["tilp", "--no-gui", "--silent", f], capture_output=True, text=True)
+        out = (r.stdout + r.stderr).strip()
+        ok = r.returncode == 0 and "error" not in out.lower()
+        print("%s %s" % ("sent" if ok else "FAILED", f))
+        if not ok:
+            print(out)
+            sys.exit(1)
+
+
+def cmd_hw(a):
+    import hw
+    try:
+        sys.exit(hw.main(a.args))
+    except RuntimeError as e:
+        print("hardware: %s (is the calculator plugged in and on?)" % e)
+        sys.exit(2)
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sp = ap.add_subparsers(dest="cmd", required=True)
+    p = sp.add_parser("build"); p.add_argument("files", nargs="+"); p.set_defaults(f=cmd_build)
+    p = sp.add_parser("test"); p.add_argument("dir"); p.add_argument("-k"); p.set_defaults(f=cmd_test)
+    p = sp.add_parser("run"); p.add_argument("files", nargs="+")
+    p.add_argument("-i", "--input", action="append", default=[], help="text typed at each prompt")
+    p.add_argument("--settle", type=float, default=5.0); p.set_defaults(f=cmd_run)
+    p = sp.add_parser("flash"); p.add_argument("files", nargs="+"); p.set_defaults(f=cmd_flash)
+    p = sp.add_parser("hw"); p.add_argument("args", nargs=argparse.REMAINDER); p.set_defaults(f=cmd_hw)
+    a = ap.parse_args()
+    a.f(a)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,8 @@
+venv/
+out/
+__pycache__/
+harness/libtihl.so
+# TI's OS/ROM is copyrighted: dumped from the user's own calculator, never commit
+*.rom
+*.sav
+programs/**/*.8xp

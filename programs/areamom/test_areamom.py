@@ -444,14 +444,14 @@ def test_matrix_wrong_column_count(calc):
 def test_matrix_zero_dimension_names_row(calc):
     put(calc, "F", [[10, 80, 0, 35], [50, 0, 30, 0], [5, 5, 0, 0]])
     screen = start(calc, 1, ["F"])
-    i = screen.index("BAD ROW:")
+    i = screen.index("BAD SHAPE/ROW:")
     assert screen[i + 1].strip() == "2" and "B OR H IS 0" in screen, screen
 
 
 def test_matrix_both_negative_names_row(calc):
     put(calc, "G", [[10, 80, 0, 35], [50, 10, 30, 0], [-5, -5, 0, 0]])
     screen = start(calc, 1, ["G"])
-    i = screen.index("BAD ROW:")
+    i = screen.index("BAD SHAPE/ROW:")
     assert screen[i + 1].strip() == "3" and "B AND H BOTH <0" in screen, screen
 
 
@@ -496,8 +496,8 @@ def test_vertex_prompts_in_order_with_expressions(calc):
     calc.press("ENTER")
     calc.run(4)
     t = calc.text()
-    assert value(t[4], "x?*=") == "0", t     # (-5 + 5) / 2
-    assert value(t[5], "y?*=") == "10", t    # (0 + 20) / 2
+    assert value(t[3], "x?*=") == "0", t     # (-5 + 5) / 2
+    assert value(t[4], "y?*=") == "10", t    # (0 + 20) / 2
 
 
 def test_matrix_vertices_same_as_typed_centroids(calc):
@@ -523,7 +523,7 @@ def test_matrix_vertices_left_untouched(calc):
 def test_matrix_vertices_bad_row_still_named(calc):
     put(calc, "G", [[10, 80, 0, 0, 10, 80], [50, 0, 30, 0, 80, 0], [5, 5, 0, 0, 5, 5]])
     screen = start(calc, 1, ["G"])
-    i = screen.index("BAD ROW:")
+    i = screen.index("BAD SHAPE/ROW:")
     assert screen[i + 1].strip() == "2" and "B OR H IS 0" in screen, screen
 
 
@@ -542,3 +542,67 @@ def test_vertex_mode_cleans_temp_lists(calc):
         except Exception:
             continue
         raise AssertionError("temp list %r left behind" % tmp)
+
+
+# --- vertex mode: B/H must match the corners ------------------------------------
+
+def test_typed_vertices_x_mismatch_names_shape_and_axis(calc):
+    # shape 2: B=50 but corners are 60 apart in x (y is fine)
+    ins = ["2", "10", "80", "~5", "~5", "5", "75", "50", "10", "5", "~5", "65", "5"]
+    s = start(calc, 3, ins, settle=2)
+    assert s[0].replace(" ", "") == "SHAPE2ERROR", s
+    assert s[1] == "X: B≠|X2-X1|", s
+    assert s[2].replace(" ", "") == "B=50" and s[3].replace(" ", "") == "|X2-X1|=60", s
+    assert not any(l.startswith("Y:") for l in s), s
+    assert s[7] == "ENTER: RETYPE", s
+
+
+def test_typed_vertices_y_mismatch(calc):
+    s = start(calc, 3, ["1", "10", "20", "0", "0", "10", "25"], settle=2)
+    assert s[0].replace(" ", "") == "SHAPE1ERROR" and s[4] == "Y: H≠|Y2-Y1|", s
+    assert not any(l.startswith("X:") for l in s), s
+    assert s[5].replace(" ", "") == "H=20" and s[6].replace(" ", "") == "|Y2-Y1|=25", s
+
+
+def test_typed_vertices_both_axes_mismatch(calc):
+    s = start(calc, 3, ["1", "10", "20", "0", "0", "11", "21"], settle=2)
+    assert s[1].startswith("X:") and s[4].startswith("Y:"), s
+
+
+def test_typed_vertices_retype_after_error(calc):
+    ins = ["1", "10", "20", "0", "0", "12", "20"]
+    s = start(calc, 3, ins, settle=2)
+    assert s[1].startswith("X:"), s
+    calc.press("ENTER")        # retype the whole shape
+    calc.run(1.5)
+    assert any(l.startswith("B=") for l in calc.text()), calc.text()
+    for v in ["10", "20", "0", "0", "10", "20"]:
+        calc.type(v + "\n")
+        calc.run(1.5)
+    calc.run(4)
+    t = calc.text()
+    assert calc.error() is None and t[0].replace(" ", "") == "#1A=200", t
+
+
+def test_typed_vertices_holes_compare_magnitudes(calc):
+    plate = [(100, 100, 0, 0), (-20, 40, 20, 10)]
+    check_all(run_vertices(calc, plate), plate)        # B=-20 vs corners 20 apart: OK
+
+
+def test_matrix_vertices_mismatch_names_row_and_axis(calc):
+    rows = [[10, 80, -5, -5, 5, 75], [50, 10, 5, -5, 55, 5], [5, 5, 0, 0, 5, 6]]
+    put(calc, "F", rows)
+    s = start(calc, 1, ["F"])
+    i = s.index("BAD SHAPE/ROW:")
+    assert s[i + 1].strip() == "3" and "Y: H≠|Y2-Y1|" in s and not any(l.startswith("X:") for l in s), s
+    calc.press("CLEAR")
+    rows[2] = [5, 5, 0, 0, 6, 6]
+    put(calc, "F", rows)
+    s = start(calc, 1, ["F"])
+    assert s[s.index("BAD SHAPE/ROW:") + 1].strip() == "3" and "X: B≠|X2-X1|" in s and "Y: H≠|Y2-Y1|" in s, s
+    calc.press("CLEAR")
+    rows[2] = [5, 5, 0, 0, 5, 5]
+    rows[0] = [10, 80, -5, -5, 6, 75]
+    put(calc, "F", rows)
+    s = start(calc, 1, ["F"])
+    assert s[s.index("BAD SHAPE/ROW:") + 1].strip() == "1" and "X: B≠|X2-X1|" in s, s

@@ -47,7 +47,7 @@ def reference(shapes):
 
 
 def start(calc, choice, inputs=(), settle=4.0):
-    """Launch AREAMOM, pick menu item 1 (MATRIX) or 2 (TYPE IN), answer prompts."""
+    """Launch AREAMOM, pick menu item 1 (MATRIX), 2 (TYPE CENTROIDS) or 3 (TYPE VERTICES), answer prompts."""
     calc.run_program("AREAMOM", settle=0.5)
     calc.press("K%d" % choice)
     calc.run(1.5)
@@ -61,6 +61,17 @@ def start(calc, choice, inputs=(), settle=4.0):
 
 def typed(calc, inputs, settle=4.0):
     return start(calc, 2, inputs, settle)
+
+
+def corners(shape, flip=False):
+    """Two opposite corners (x1, y1, x2, y2) of the rectangle whose centroid is shape's."""
+    b, h, x, y = shape
+    dx, dy = abs(b) / 2, abs(h) / 2
+    return (x - dx, y + dy, x + dx, y - dy) if flip else (x - dx, y - dy, x + dx, y + dy)
+
+
+def vertex_rows(shapes, flip=False):
+    return [list(s[:2]) + list(corners(s, flip)) for s in shapes]
 
 
 def pages(calc, first, n_shapes, settle=4.0):
@@ -81,13 +92,20 @@ def run(calc, shapes, settle=4.0):
     return pages(calc, typed(calc, ins, settle), len(shapes), settle)
 
 
+def run_vertices(calc, shapes, settle=4.0, flip=False):
+    """Type the shapes in as B, H, x1, y1, x2, y2 (menu item 3)."""
+    ins = [str(len(shapes))] + [num(v) for r in vertex_rows(shapes, flip) for v in r]
+    return pages(calc, start(calc, 3, ins, settle), len(shapes), settle)
+
+
 def put(calc, letter, rows):
     calc.send_var(T_MATRIX, bytes([0x5C, "ABCDEFGHIJ".index(letter)]), matrix_data(rows))
 
 
-def run_matrix(calc, letter, shapes, settle=4.0):
-    """Store the shapes as matrix [letter] (rows = shapes, cols = b h x y), use MATRIX."""
-    put(calc, letter, [list(s) for s in shapes])
+def run_matrix(calc, letter, shapes, settle=4.0, vertices=False, flip=False):
+    """Store the shapes as matrix [letter] (rows = shapes; cols = b h x y, or
+    b h x1 y1 x2 y2 with vertices=True), use MATRIX."""
+    put(calc, letter, vertex_rows(shapes, flip) if vertices else [list(s) for s in shapes])
     return pages(calc, start(calc, 1, [letter], settle), len(shapes), settle)
 
 
@@ -371,13 +389,15 @@ def test_other_vars_untouched_and_temps_cleaned(calc):
 def test_menu_offers_matrix_and_typing(calc):
     screen = calc.run_program("AREAMOM", settle=0.5)
     assert screen[0].strip() == "AREA MOMENTS", screen
-    assert "1:MATRIX" in screen[1] and "2:TYPE IN" in screen[2], screen
+    assert "1:MATRIX" in screen[1] and "2:TYPE CENTROIDS" in screen[2], screen
+    assert "3:TYPE VERTICES" in screen[3], screen
 
 
 def test_matrix_screen_explains_format(calc):
     screen = start(calc, 1, settle=0.5)
     assert screen[0] == "ROWS: SHAPES", screen
     assert screen[1] == "COL:B H X?* Y?*", screen
+    assert screen[2] == "OR:B H X1Y1X2Y2", screen
     assert screen[3].startswith("MATRIX A-J?"), screen
 
 
@@ -418,7 +438,7 @@ def test_matrix_bad_name(calc):
 def test_matrix_wrong_column_count(calc):
     put(calc, "E", [[10, 80, 0], [50, 10, 30]])
     screen = start(calc, 1, ["E"])
-    assert "NEED 4 COLUMNS:" in screen, screen
+    assert "4 OR 6 COLUMNS:" in screen, screen
 
 
 def test_matrix_zero_dimension_names_row(calc):
@@ -438,3 +458,87 @@ def test_matrix_both_negative_names_row(calc):
 def test_matrix_undefined(calc):
     start(calc, 1, ["H"])
     assert calc.error() == "UNDEFINED"
+
+
+# --- vertex entry: B, H, x1, y1, x2, y2 ---------------------------------------
+
+def test_vertices_typed_match_centroids_L_channel(calc):
+    cent = run(calc, L_CHANNEL)
+    calc.press("CLEAR")
+    vert = run_vertices(calc, L_CHANNEL)
+    check_all(vert, L_CHANNEL)
+    assert vert == cent, (vert, cent)
+
+
+def test_vertices_typed_other_diagonal_and_holes(calc):
+    plate = [(100, 100, 0, 0), (-20, 40, 20, 10)]
+    check_all(run_vertices(calc, plate, flip=True), plate)
+    calc.press("CLEAR")
+    plate_h = [(100, 100, 0, 0), (20, -40, 20, 10)]
+    check_all(run_vertices(calc, plate_h), plate_h)
+
+
+def test_vertices_typed_Z_section_and_small_values(calc):
+    check_all(run_vertices(calc, Z_SECTION), Z_SECTION)
+    calc.press("CLEAR")
+    metres = [(0.01, 0.08, 0, 0.035), (0.05, 0.01, -0.03, 0)]
+    check_all(run_vertices(calc, metres), metres)
+
+
+def test_vertex_prompts_in_order_with_expressions(calc):
+    screen = start(calc, 3, ["1", "10", "20", "~5+0"], settle=1)
+    assert any(l.startswith("Y1=") for l in screen), screen
+    calc.type("0\n5*1\n20/1\n")
+    calc.run(4)
+    s = calc.text()
+    assert calc.error() is None, s
+    assert s[0].replace(" ", "") == "#1A=200", s
+    calc.press("ENTER")
+    calc.run(4)
+    t = calc.text()
+    assert value(t[4], "x?*=") == "0", t     # (-5 + 5) / 2
+    assert value(t[5], "y?*=") == "10", t    # (0 + 20) / 2
+
+
+def test_matrix_vertices_same_as_typed_centroids(calc):
+    by_matrix = run_matrix(calc, "C", L_CHANNEL, vertices=True)
+    check_all(by_matrix, L_CHANNEL)
+    calc.press("CLEAR")
+    assert run(calc, L_CHANNEL) == by_matrix
+
+
+def test_matrix_vertices_Z_section_holes_flipped(calc):
+    check_all(run_matrix(calc, "J", Z_SECTION, vertices=True, flip=True), Z_SECTION)
+    calc.press("CLEAR")
+    plate = [(100, 100, 0, 0), (-20, 40, 20, 10), (10, -10, -30, -30)]
+    check_all(run_matrix(calc, "B", plate, vertices=True), plate)
+
+
+def test_matrix_vertices_left_untouched(calc):
+    rows = vertex_rows(Z_SECTION)
+    run_matrix(calc, "D", Z_SECTION, vertices=True)
+    assert decode_matrix(calc.recv_var(T_MATRIX, b"\x5c\x03")) == rows
+
+
+def test_matrix_vertices_bad_row_still_named(calc):
+    put(calc, "G", [[10, 80, 0, 0, 10, 80], [50, 0, 30, 0, 80, 0], [5, 5, 0, 0, 5, 5]])
+    screen = start(calc, 1, ["G"])
+    i = screen.index("BAD ROW:")
+    assert screen[i + 1].strip() == "2" and "B OR H IS 0" in screen, screen
+
+
+def test_matrix_five_columns_rejected(calc):
+    put(calc, "E", [[10, 80, 0, 0, 10], [50, 10, 30, 0, 80]])
+    assert "4 OR 6 COLUMNS:" in start(calc, 1, ["E"])
+
+
+def test_vertex_mode_cleans_temp_lists(calc):
+    run_vertices(calc, L_CHANNEL)
+    calc.press("CLEAR")
+    run_matrix(calc, "A", L_CHANNEL, vertices=True)
+    for tmp in [b"MV", b"MW", b"MK", b"MT"]:
+        try:
+            calc.recv_var(T_LIST, b"\x5d" + tmp)
+        except Exception:
+            continue
+        raise AssertionError("temp list %r left behind" % tmp)

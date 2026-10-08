@@ -46,17 +46,49 @@ def reference(shapes):
     return rows, [tot, xc, yc, ix, iy, ixy], [io, r, io + r, io - r, beta]
 
 
-def run(calc, shapes, settle=4.0):
-    """Enter the shapes, then page through every screen. Returns the list of screens."""
-    ins = [str(len(shapes))] + [num(v) for s in shapes for v in s]
-    screens = [calc.run_program("AREAMOM", inputs=ins, settle=settle)]
-    assert calc.error() is None, screens[-1]
-    for _ in range(len(shapes) + 1):
+def start(calc, choice, inputs=(), settle=4.0):
+    """Launch AREAMOM, pick menu item 1 (MATRIX) or 2 (TYPE IN), answer prompts."""
+    calc.run_program("AREAMOM", settle=0.5)
+    calc.press("K%d" % choice)
+    calc.run(1.5)
+    for s in inputs:
+        calc.type(s)
+        calc.press("ENTER")
+        calc.run(1.5)
+    calc.run(settle)
+    return calc.text()
+
+
+def typed(calc, inputs, settle=4.0):
+    return start(calc, 2, inputs, settle)
+
+
+def pages(calc, first, n_shapes, settle=4.0):
+    """`first` plus every later page (ENTER between them)."""
+    screens = [first]
+    assert calc.error() is None, first
+    for _ in range(n_shapes + 1):
         calc.press("ENTER")
         calc.run(settle)
         screens.append(calc.text())
         assert calc.error() is None, screens[-1]
     return screens
+
+
+def run(calc, shapes, settle=4.0):
+    """Type the shapes in by hand, then page through every screen."""
+    ins = [str(len(shapes))] + [num(v) for s in shapes for v in s]
+    return pages(calc, typed(calc, ins, settle), len(shapes), settle)
+
+
+def put(calc, letter, rows):
+    calc.send_var(T_MATRIX, bytes([0x5C, "ABCDEFGHIJ".index(letter)]), matrix_data(rows))
+
+
+def run_matrix(calc, letter, shapes, settle=4.0):
+    """Store the shapes as matrix [letter] (rows = shapes, cols = b h x y), use MATRIX."""
+    put(calc, letter, [list(s) for s in shapes])
+    return pages(calc, start(calc, 1, [letter], settle), len(shapes), settle)
 
 
 def value(line, label, end=16):
@@ -105,7 +137,7 @@ def check_all(screens, shapes):
     for line, label, want in zip(s[2:], TOTAL_LABELS, totals):
         shown_close(value(line, label), want)
     s = screens[n + 1]
-    assert s[0] == "PRINCIPAL" and s[1] == "", s
+    assert s[0] == "PRINCIPAL" and s[1] in ("", "█"), s  # cursor blinks here
     for line, label, want in zip(s[2:6], PRINC_LABELS, princ):
         shown_close(value(line, label), want)
     if princ[1] > 1e-9 * princ[0]:
@@ -271,7 +303,7 @@ def test_random_sections_never_wrap(calc):
 def test_zero_and_fractional_shape_counts_rejected(calc):
     for bad in ["0", "1.5"]:
         calc.press("CLEAR")
-        screen = calc.run_program("AREAMOM", inputs=[bad])
+        screen = typed(calc, [bad])
         assert "NEED 1-99 SHAPES" in screen, screen
 
 
@@ -287,7 +319,7 @@ def test_hole_as_negative_h(calc):
 
 def test_b_and_h_both_negative_reprompts(calc):
     ins = ["2", "100", "100", "0", "0", "~10", "~20"]
-    screen = calc.run_program("AREAMOM", inputs=ins, settle=3)
+    screen = typed(calc, ins, settle=3)
     assert "ONLY B OR H <0" in screen, screen
     calc.type("20\n0\n0\n")   # H again, X₀*, Y₀*
     calc.run(4)
@@ -299,7 +331,7 @@ def test_b_and_h_both_negative_reprompts(calc):
 
 
 def test_b_zero_and_h_zero_reprompt(calc):
-    screen = calc.run_program("AREAMOM", inputs=["1", "0", "10", "0", "20"], settle=3)
+    screen = typed(calc, ["1", "0", "10", "0", "20"], settle=3)
     assert "B MUST NOT BE 0" in screen and "H MUST NOT BE 0" in screen, screen
     calc.type("0\n0\n")   # X₀*, Y₀*
     calc.run(4)
@@ -309,12 +341,12 @@ def test_b_zero_and_h_zero_reprompt(calc):
 
 def test_expressions_accepted(calc):
     ins = ["2", "20/2", "8*10", "0", "70/2", "50", "10", "15+15", "0"]
-    screen = calc.run_program("AREAMOM", inputs=ins, settle=4)
+    screen = typed(calc, ins)
     assert screen[0].replace(" ", "") == "#1A=800", screen
 
 
 def test_total_area_not_positive(calc):
-    screen = calc.run_program("AREAMOM", inputs=["2", "10", "10", "0", "0", "~20", "10", "0", "0"])
+    screen = typed(calc, ["2", "10", "10", "0", "0", "~20", "10", "0", "0"])
     assert "TOTAL AREA ?0" in screen or "TOTAL AREA ≤0" in screen, screen
 
 
@@ -332,3 +364,77 @@ def test_other_vars_untouched_and_temps_cleaned(calc):
         except Exception:
             continue
         raise AssertionError("temp list %r left behind" % tmp)
+
+
+# --- matrix input -------------------------------------------------------------
+
+def test_menu_offers_matrix_and_typing(calc):
+    screen = calc.run_program("AREAMOM", settle=0.5)
+    assert screen[0].strip() == "AREA MOMENTS", screen
+    assert "1:MATRIX" in screen[1] and "2:TYPE IN" in screen[2], screen
+
+
+def test_matrix_screen_explains_format(calc):
+    screen = start(calc, 1, settle=0.5)
+    assert screen[0] == "ROWS: SHAPES", screen
+    assert screen[1] == "COL:B H X?* Y?*", screen
+    assert screen[3].startswith("MATRIX A-J?"), screen
+
+
+def test_matrix_L_channel_same_as_typed(calc):
+    by_matrix = run_matrix(calc, "C", L_CHANNEL)
+    check_all(by_matrix, L_CHANNEL)
+    calc.press("CLEAR")
+    assert run(calc, L_CHANNEL) == by_matrix
+
+
+def test_matrix_Z_section_in_J(calc):
+    check_all(run_matrix(calc, "J", Z_SECTION), Z_SECTION)
+
+
+def test_matrix_single_row_and_holes(calc):
+    check_all(run_matrix(calc, "A", [(20, 20, 5, 5)]), [(20, 20, 5, 5)])
+    calc.press("CLEAR")
+    plate = [(100, 100, 0, 0), (-20, 40, 20, 10), (10, -10, -30, -30)]
+    check_all(run_matrix(calc, "B", plate), plate)
+
+
+def test_matrix_left_untouched_and_tensor_in_I(calc):
+    rows = [list(s) for s in Z_SECTION]
+    run_matrix(calc, "D", Z_SECTION)
+    assert decode_matrix(calc.recv_var(T_MATRIX, b"\x5c\x03")) == rows
+    _, (_, _, _, ix, iy, ixy), _ = reference(Z_SECTION)
+    m = decode_matrix(calc.recv_var(T_MATRIX, MAT_I))
+    assert all(abs(g - w) <= 1e-9 * abs(w) for g, w in zip(m[0] + m[1], [ix, ixy, ixy, iy])), m
+
+
+def test_matrix_bad_name(calc):
+    for bad in ["K", "AB"]:
+        calc.press("CLEAR")
+        screen = start(calc, 1, [bad])
+        assert "NAME MUST BE A-J" in screen, screen
+
+
+def test_matrix_wrong_column_count(calc):
+    put(calc, "E", [[10, 80, 0], [50, 10, 30]])
+    screen = start(calc, 1, ["E"])
+    assert "NEED 4 COLUMNS:" in screen, screen
+
+
+def test_matrix_zero_dimension_names_row(calc):
+    put(calc, "F", [[10, 80, 0, 35], [50, 0, 30, 0], [5, 5, 0, 0]])
+    screen = start(calc, 1, ["F"])
+    i = screen.index("BAD ROW:")
+    assert screen[i + 1].strip() == "2" and "B OR H IS 0" in screen, screen
+
+
+def test_matrix_both_negative_names_row(calc):
+    put(calc, "G", [[10, 80, 0, 35], [50, 10, 30, 0], [-5, -5, 0, 0]])
+    screen = start(calc, 1, ["G"])
+    i = screen.index("BAD ROW:")
+    assert screen[i + 1].strip() == "3" and "B AND H BOTH <0" in screen, screen
+
+
+def test_matrix_undefined(calc):
+    start(calc, 1, ["H"])
+    assert calc.error() == "UNDEFINED"

@@ -1,4 +1,7 @@
 ClrHome
+Menu("AREA MOMENTS","MATRIX",M,"TYPE IN",T)
+Lbl T
+ClrHome
 Disp "AREA MOMENTS"
 Input "SHAPES? ",Str1
 {expr(Str1),1,1}→ʟMK
@@ -36,6 +39,49 @@ Input "Y₀*=",Str1
 expr(Str1)→ʟMY(ʟMK(2))
 ʟMK(2)+1→ʟMK(2)
 End
+Goto C
+Lbl M
+ClrHome
+Disp "ROWS: SHAPES","COL:B H X₀* Y₀*",""
+Input "MATRIX A-J? ",Str1
+{0,0}→ʟMT
+If Str1="A":Then:dim([A])→ʟMT:If ʟMT(2)=4:Matr►list([A],ʟMB,ʟMH,ʟMX,ʟMY):End
+If Str1="B":Then:dim([B])→ʟMT:If ʟMT(2)=4:Matr►list([B],ʟMB,ʟMH,ʟMX,ʟMY):End
+If Str1="C":Then:dim([C])→ʟMT:If ʟMT(2)=4:Matr►list([C],ʟMB,ʟMH,ʟMX,ʟMY):End
+If Str1="D":Then:dim([D])→ʟMT:If ʟMT(2)=4:Matr►list([D],ʟMB,ʟMH,ʟMX,ʟMY):End
+If Str1="E":Then:dim([E])→ʟMT:If ʟMT(2)=4:Matr►list([E],ʟMB,ʟMH,ʟMX,ʟMY):End
+If Str1="F":Then:dim([F])→ʟMT:If ʟMT(2)=4:Matr►list([F],ʟMB,ʟMH,ʟMX,ʟMY):End
+If Str1="G":Then:dim([G])→ʟMT:If ʟMT(2)=4:Matr►list([G],ʟMB,ʟMH,ʟMX,ʟMY):End
+If Str1="H":Then:dim([H])→ʟMT:If ʟMT(2)=4:Matr►list([H],ʟMB,ʟMH,ʟMX,ʟMY):End
+If Str1="I":Then:dim([I])→ʟMT:If ʟMT(2)=4:Matr►list([I],ʟMB,ʟMH,ʟMX,ʟMY):End
+If Str1="J":Then:dim([J])→ʟMT:If ʟMT(2)=4:Matr►list([J],ʟMB,ʟMH,ʟMX,ʟMY):End
+If not(ʟMT(1))
+Then
+Disp "NAME MUST BE A-J"
+Stop
+End
+If ʟMT(2)≠4
+Then
+Disp "NEED 4 COLUMNS:","B H X₀* Y₀*"
+Stop
+End
+If ʟMT(1)>99
+Then
+Disp "MAX 99 ROWS"
+Stop
+End
+not(ʟMB*ʟMH)+2(ʟMB<0 and ʟMH<0)→ʟMT
+If max(ʟMT)
+Then
+Disp "BAD ROW:",1+sum(cumSum(ʟMT)=0)
+If ʟMT(1+sum(cumSum(ʟMT)=0))=1
+Disp "B OR H IS 0"
+If ʟMT(1+sum(cumSum(ʟMT)=0))=2
+Disp "B AND H BOTH <0"
+Stop
+End
+{dim(ʟMB),1,1}→ʟMK
+Lbl C
 ʟMB*ʟMH→ʟMA
 {sum(ʟMA)}→ʟMOA
 If ʟMOA(1)≤0

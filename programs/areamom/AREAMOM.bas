@@ -1,10 +1,15 @@
 ClrHome
-Menu("AREA MOMENTS","MATRIX",M,"TYPE IN",T)
+Menu("AREA MOMENTS","MATRIX",M,"TYPE CENTROIDS",T,"TYPE VERTICES",V)
 Lbl T
+{1}→ʟMK
+Goto S
+Lbl V
+{2}→ʟMK
+Lbl S
 ClrHome
 Disp "AREA MOMENTS"
 Input "SHAPES? ",Str1
-{expr(Str1),1,1}→ʟMK
+{expr(Str1),1,ʟMK(1)}→ʟMK
 If ʟMK(1)<1 or ʟMK(1)>99 or fPart(ʟMK(1))
 Then
 Disp "NEED 1-99 SHAPES"
@@ -33,42 +38,59 @@ Disp "H MUST NOT BE 0"
 If ʟMB(ʟMK(2))<0 and ʟMH(ʟMK(2))<0
 Disp "ONLY B OR H <0"
 End
+If ʟMK(3)=1
+Then
 Input "X₀*=",Str1
 expr(Str1)→ʟMX(ʟMK(2))
 Input "Y₀*=",Str1
 expr(Str1)→ʟMY(ʟMK(2))
+Else
+Input "X1=",Str1
+expr(Str1)→ʟMX(ʟMK(2))
+Input "Y1=",Str1
+expr(Str1)→ʟMY(ʟMK(2))
+Input "X2=",Str1
+(ʟMX(ʟMK(2))+expr(Str1))/2→ʟMX(ʟMK(2))
+Input "Y2=",Str1
+(ʟMY(ʟMK(2))+expr(Str1))/2→ʟMY(ʟMK(2))
+End
 ʟMK(2)+1→ʟMK(2)
 End
 Goto C
 Lbl M
 ClrHome
-Disp "ROWS: SHAPES","COL:B H X₀* Y₀*",""
+Disp "ROWS: SHAPES","COL:B H X₀* Y₀*","OR:B H X1Y1X2Y2"
 Input "MATRIX A-J? ",Str1
 {0,0}→ʟMT
-If Str1="A":Then:dim([A])→ʟMT:If ʟMT(2)=4:Matr►list([A],ʟMB,ʟMH,ʟMX,ʟMY):End
-If Str1="B":Then:dim([B])→ʟMT:If ʟMT(2)=4:Matr►list([B],ʟMB,ʟMH,ʟMX,ʟMY):End
-If Str1="C":Then:dim([C])→ʟMT:If ʟMT(2)=4:Matr►list([C],ʟMB,ʟMH,ʟMX,ʟMY):End
-If Str1="D":Then:dim([D])→ʟMT:If ʟMT(2)=4:Matr►list([D],ʟMB,ʟMH,ʟMX,ʟMY):End
-If Str1="E":Then:dim([E])→ʟMT:If ʟMT(2)=4:Matr►list([E],ʟMB,ʟMH,ʟMX,ʟMY):End
-If Str1="F":Then:dim([F])→ʟMT:If ʟMT(2)=4:Matr►list([F],ʟMB,ʟMH,ʟMX,ʟMY):End
-If Str1="G":Then:dim([G])→ʟMT:If ʟMT(2)=4:Matr►list([G],ʟMB,ʟMH,ʟMX,ʟMY):End
-If Str1="H":Then:dim([H])→ʟMT:If ʟMT(2)=4:Matr►list([H],ʟMB,ʟMH,ʟMX,ʟMY):End
-If Str1="I":Then:dim([I])→ʟMT:If ʟMT(2)=4:Matr►list([I],ʟMB,ʟMH,ʟMX,ʟMY):End
-If Str1="J":Then:dim([J])→ʟMT:If ʟMT(2)=4:Matr►list([J],ʟMB,ʟMH,ʟMX,ʟMY):End
+If Str1="A":Then:dim([A])→ʟMT:If ʟMT(2)=4:Matr►list([A],ʟMB,ʟMH,ʟMX,ʟMY):If ʟMT(2)=6:Matr►list([A],ʟMB,ʟMH,ʟMX,ʟMY,ʟMV,ʟMW):End
+If Str1="B":Then:dim([B])→ʟMT:If ʟMT(2)=4:Matr►list([B],ʟMB,ʟMH,ʟMX,ʟMY):If ʟMT(2)=6:Matr►list([B],ʟMB,ʟMH,ʟMX,ʟMY,ʟMV,ʟMW):End
+If Str1="C":Then:dim([C])→ʟMT:If ʟMT(2)=4:Matr►list([C],ʟMB,ʟMH,ʟMX,ʟMY):If ʟMT(2)=6:Matr►list([C],ʟMB,ʟMH,ʟMX,ʟMY,ʟMV,ʟMW):End
+If Str1="D":Then:dim([D])→ʟMT:If ʟMT(2)=4:Matr►list([D],ʟMB,ʟMH,ʟMX,ʟMY):If ʟMT(2)=6:Matr►list([D],ʟMB,ʟMH,ʟMX,ʟMY,ʟMV,ʟMW):End
+If Str1="E":Then:dim([E])→ʟMT:If ʟMT(2)=4:Matr►list([E],ʟMB,ʟMH,ʟMX,ʟMY):If ʟMT(2)=6:Matr►list([E],ʟMB,ʟMH,ʟMX,ʟMY,ʟMV,ʟMW):End
+If Str1="F":Then:dim([F])→ʟMT:If ʟMT(2)=4:Matr►list([F],ʟMB,ʟMH,ʟMX,ʟMY):If ʟMT(2)=6:Matr►list([F],ʟMB,ʟMH,ʟMX,ʟMY,ʟMV,ʟMW):End
+If Str1="G":Then:dim([G])→ʟMT:If ʟMT(2)=4:Matr►list([G],ʟMB,ʟMH,ʟMX,ʟMY):If ʟMT(2)=6:Matr►list([G],ʟMB,ʟMH,ʟMX,ʟMY,ʟMV,ʟMW):End
+If Str1="H":Then:dim([H])→ʟMT:If ʟMT(2)=4:Matr►list([H],ʟMB,ʟMH,ʟMX,ʟMY):If ʟMT(2)=6:Matr►list([H],ʟMB,ʟMH,ʟMX,ʟMY,ʟMV,ʟMW):End
+If Str1="I":Then:dim([I])→ʟMT:If ʟMT(2)=4:Matr►list([I],ʟMB,ʟMH,ʟMX,ʟMY):If ʟMT(2)=6:Matr►list([I],ʟMB,ʟMH,ʟMX,ʟMY,ʟMV,ʟMW):End
+If Str1="J":Then:dim([J])→ʟMT:If ʟMT(2)=4:Matr►list([J],ʟMB,ʟMH,ʟMX,ʟMY):If ʟMT(2)=6:Matr►list([J],ʟMB,ʟMH,ʟMX,ʟMY,ʟMV,ʟMW):End
 If not(ʟMT(1))
 Then
 Disp "NAME MUST BE A-J"
 Stop
 End
-If ʟMT(2)≠4
+If ʟMT(2)≠4 and ʟMT(2)≠6
 Then
-Disp "NEED 4 COLUMNS:","B H X₀* Y₀*"
+Disp "4 OR 6 COLUMNS:","B H X₀* Y₀*","B H X1Y1X2Y2"
 Stop
 End
 If ʟMT(1)>99
 Then
 Disp "MAX 99 ROWS"
 Stop
+End
+If ʟMT(2)=6
+Then
+(ʟMX+ʟMV)/2→ʟMX
+(ʟMY+ʟMW)/2→ʟMY
 End
 not(ʟMB*ʟMH)+2(ʟMB<0 and ʟMH<0)→ʟMT
 If max(ʟMT)

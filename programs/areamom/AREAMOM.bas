@@ -1,5 +1,5 @@
 ClrHome
-Menu("AREA MOMENTS","MATRIX",M,"TYPE CENTROIDS",T,"TYPE VERTICES",V)
+Menu("AREA MOMENTS","MAT: CENTROIDS",M,"MAT: VERTICES",N,"TYPE CENTROIDS",T,"TYPE VERTICES",V)
 Lbl T
 {1}→ʟMK
 Goto S
@@ -19,10 +19,10 @@ End
 ʟMK(1)→dim(ʟMH)
 ʟMK(1)→dim(ʟMX)
 ʟMK(1)→dim(ʟMY)
-ʟMK(1)→dim(ʟMV)
-ʟMK(1)→dim(ʟMW)
 Repeat ʟMK(2)>ʟMK(1)
 ClrHome
+If ʟMK(3)=1
+Then
 Disp ""
 Output(1,1,"SHAPE")
 Output(1,7,ʟMK(2))
@@ -40,81 +40,78 @@ Disp "H MUST NOT BE 0"
 If ʟMB(ʟMK(2))<0 and ʟMH(ʟMK(2))<0
 Disp "ONLY B OR H <0"
 End
-If ʟMK(3)=1
-Then
 Input "X₀*=",Str1
 expr(Str1)→ʟMX(ʟMK(2))
 Input "Y₀*=",Str1
 expr(Str1)→ʟMY(ʟMK(2))
+ʟMK(2)+1→ʟMK(2)
 Else
+Disp "","",""
+Output(1,1,"SHAPE")
+Output(1,7,ʟMK(2))
+Output(2,1,"SOLID: BL,TR")
+Output(3,1,"HOLE:  TL,BR")
 Input "X1=",Str1
 expr(Str1)→ʟMX(ʟMK(2))
 Input "Y1=",Str1
 expr(Str1)→ʟMY(ʟMK(2))
 Input "X2=",Str1
-expr(Str1)→ʟMV(ʟMK(2))
+expr(Str1)-ʟMX(ʟMK(2))→ʟMB(ʟMK(2))
 Input "Y2=",Str1
-expr(Str1)→ʟMW(ʟMK(2))
-End
-0→ʟMK(4)
-If ʟMK(3)=2
-(abs(abs(ʟMV(ʟMK(2))-ʟMX(ʟMK(2)))-abs(ʟMB(ʟMK(2))))>10^(⁻9)abs(ʟMB(ʟMK(2))))+2(abs(abs(ʟMW(ʟMK(2))-ʟMY(ʟMK(2)))-abs(ʟMH(ʟMK(2))))>10^(⁻9)abs(ʟMH(ʟMK(2))))→ʟMK(4)
-If ʟMK(4)
+expr(Str1)-ʟMY(ʟMK(2))→ʟMH(ʟMK(2))
+If ʟMB(ʟMK(2))ʟMH(ʟMK(2))
 Then
-ClrHome
-Output(1,1,"SHAPE")
-Output(1,7,ʟMK(2))
-Output(1,10,"ERROR")
-If ʟMK(4)≠2
+ʟMX(ʟMK(2))+ʟMB(ʟMK(2))/2→ʟMX(ʟMK(2))
+ʟMY(ʟMK(2))+ʟMH(ʟMK(2))/2→ʟMY(ʟMK(2))
+If ʟMB(ʟMK(2))<0 and ʟMH(ʟMK(2))<0
 Then
-Output(2,1,"X: B≠|X2-X1|")
-Output(3,1,"B=")
-Output(3,3,ʟMB(ʟMK(2)))
-Output(4,1,"|X2-X1|=")
-Output(4,9,abs(ʟMV(ʟMK(2))-ʟMX(ʟMK(2))))
+⁻ʟMB(ʟMK(2))→ʟMB(ʟMK(2))
+⁻ʟMH(ʟMK(2))→ʟMH(ʟMK(2))
 End
-If ʟMK(4)≥2
-Then
-Output(5,1,"Y: H≠|Y2-Y1|")
-Output(6,1,"H=")
-Output(6,3,ʟMH(ʟMK(2)))
-Output(7,1,"|Y2-Y1|=")
-Output(7,9,abs(ʟMW(ʟMK(2))-ʟMY(ʟMK(2))))
+ʟMK(2)+1→ʟMK(2)
+Else
+Disp "X1=X2 OR Y1=Y2","ENTER: RETYPE"
+Pause 
 End
-Output(8,1,"ENTER: RETYPE")
-Pause :ClrHome
 End
-If ʟMK(3)=2 and not(ʟMK(4))
-Then
-(ʟMX(ʟMK(2))+ʟMV(ʟMK(2)))/2→ʟMX(ʟMK(2))
-(ʟMY(ʟMK(2))+ʟMW(ʟMK(2)))/2→ʟMY(ʟMK(2))
-End
-ʟMK(2)+not(ʟMK(4))→ʟMK(2)
 End
 Goto C
 Lbl M
+{0,0,1}→ʟMK
+Goto R
+Lbl N
+{0,0,2}→ʟMK
+Lbl R
 ClrHome
-Disp "ROWS: SHAPES","COL:B H X₀* Y₀*","OR:B H X1Y1X2Y2"
+Disp "ROWS: SHAPES"
+If ʟMK(3)=1
+Disp "COL:B H X₀* Y₀*"
+If ʟMK(3)=2
+Disp "COL:X1 Y1 X2 Y2","SOLID: BL,TR","HOLE:  TL,BR"
 Input "MATRIX A-J? ",Str1
 {0,0}→ʟMT
-If Str1="A":Then:dim([A])→ʟMT:If ʟMT(2)=4:Matr►list([A],ʟMB,ʟMH,ʟMX,ʟMY):If ʟMT(2)=6:Matr►list([A],ʟMB,ʟMH,ʟMX,ʟMY,ʟMV,ʟMW):End
-If Str1="B":Then:dim([B])→ʟMT:If ʟMT(2)=4:Matr►list([B],ʟMB,ʟMH,ʟMX,ʟMY):If ʟMT(2)=6:Matr►list([B],ʟMB,ʟMH,ʟMX,ʟMY,ʟMV,ʟMW):End
-If Str1="C":Then:dim([C])→ʟMT:If ʟMT(2)=4:Matr►list([C],ʟMB,ʟMH,ʟMX,ʟMY):If ʟMT(2)=6:Matr►list([C],ʟMB,ʟMH,ʟMX,ʟMY,ʟMV,ʟMW):End
-If Str1="D":Then:dim([D])→ʟMT:If ʟMT(2)=4:Matr►list([D],ʟMB,ʟMH,ʟMX,ʟMY):If ʟMT(2)=6:Matr►list([D],ʟMB,ʟMH,ʟMX,ʟMY,ʟMV,ʟMW):End
-If Str1="E":Then:dim([E])→ʟMT:If ʟMT(2)=4:Matr►list([E],ʟMB,ʟMH,ʟMX,ʟMY):If ʟMT(2)=6:Matr►list([E],ʟMB,ʟMH,ʟMX,ʟMY,ʟMV,ʟMW):End
-If Str1="F":Then:dim([F])→ʟMT:If ʟMT(2)=4:Matr►list([F],ʟMB,ʟMH,ʟMX,ʟMY):If ʟMT(2)=6:Matr►list([F],ʟMB,ʟMH,ʟMX,ʟMY,ʟMV,ʟMW):End
-If Str1="G":Then:dim([G])→ʟMT:If ʟMT(2)=4:Matr►list([G],ʟMB,ʟMH,ʟMX,ʟMY):If ʟMT(2)=6:Matr►list([G],ʟMB,ʟMH,ʟMX,ʟMY,ʟMV,ʟMW):End
-If Str1="H":Then:dim([H])→ʟMT:If ʟMT(2)=4:Matr►list([H],ʟMB,ʟMH,ʟMX,ʟMY):If ʟMT(2)=6:Matr►list([H],ʟMB,ʟMH,ʟMX,ʟMY,ʟMV,ʟMW):End
-If Str1="I":Then:dim([I])→ʟMT:If ʟMT(2)=4:Matr►list([I],ʟMB,ʟMH,ʟMX,ʟMY):If ʟMT(2)=6:Matr►list([I],ʟMB,ʟMH,ʟMX,ʟMY,ʟMV,ʟMW):End
-If Str1="J":Then:dim([J])→ʟMT:If ʟMT(2)=4:Matr►list([J],ʟMB,ʟMH,ʟMX,ʟMY):If ʟMT(2)=6:Matr►list([J],ʟMB,ʟMH,ʟMX,ʟMY,ʟMV,ʟMW):End
+If Str1="A":Then:dim([A])→ʟMT:If ʟMT(2)=4:Matr►list([A],ʟMB,ʟMH,ʟMX,ʟMY):End
+If Str1="B":Then:dim([B])→ʟMT:If ʟMT(2)=4:Matr►list([B],ʟMB,ʟMH,ʟMX,ʟMY):End
+If Str1="C":Then:dim([C])→ʟMT:If ʟMT(2)=4:Matr►list([C],ʟMB,ʟMH,ʟMX,ʟMY):End
+If Str1="D":Then:dim([D])→ʟMT:If ʟMT(2)=4:Matr►list([D],ʟMB,ʟMH,ʟMX,ʟMY):End
+If Str1="E":Then:dim([E])→ʟMT:If ʟMT(2)=4:Matr►list([E],ʟMB,ʟMH,ʟMX,ʟMY):End
+If Str1="F":Then:dim([F])→ʟMT:If ʟMT(2)=4:Matr►list([F],ʟMB,ʟMH,ʟMX,ʟMY):End
+If Str1="G":Then:dim([G])→ʟMT:If ʟMT(2)=4:Matr►list([G],ʟMB,ʟMH,ʟMX,ʟMY):End
+If Str1="H":Then:dim([H])→ʟMT:If ʟMT(2)=4:Matr►list([H],ʟMB,ʟMH,ʟMX,ʟMY):End
+If Str1="I":Then:dim([I])→ʟMT:If ʟMT(2)=4:Matr►list([I],ʟMB,ʟMH,ʟMX,ʟMY):End
+If Str1="J":Then:dim([J])→ʟMT:If ʟMT(2)=4:Matr►list([J],ʟMB,ʟMH,ʟMX,ʟMY):End
 If not(ʟMT(1))
 Then
 Disp "NAME MUST BE A-J"
 Stop
 End
-If ʟMT(2)≠4 and ʟMT(2)≠6
+If ʟMT(2)≠4
 Then
-Disp "4 OR 6 COLUMNS:","B H X₀* Y₀*","B H X1Y1X2Y2"
+Disp "NEED 4 COLUMNS:"
+If ʟMK(3)=1
+Disp "B H X₀* Y₀*"
+If ʟMK(3)=2
+Disp "X1 Y1 X2 Y2"
 Stop
 End
 If ʟMT(1)>99
@@ -122,30 +119,30 @@ Then
 Disp "MAX 99 ROWS"
 Stop
 End
-0ʟMB→ʟMN
-If ʟMT(2)=6
+If ʟMK(3)=2
 Then
-(abs(abs(ʟMV-ʟMX)-abs(ʟMB))>10^(⁻9)abs(ʟMB))+2(abs(abs(ʟMW-ʟMY)-abs(ʟMH))>10^(⁻9)abs(ʟMH))→ʟMN
-(ʟMX+ʟMV)/2→ʟMX
-(ʟMY+ʟMW)/2→ʟMY
+ʟMX-ʟMB→ʟMV
+ʟMY-ʟMH→ʟMW
+(ʟMB+ʟMX)/2→ʟMX
+(ʟMH+ʟMY)/2→ʟMY
+1-2(ʟMV<0 and ʟMW<0)→ʟMN
+ʟMN*ʟMV→ʟMB
+ʟMN*ʟMW→ʟMH
 End
 not(ʟMB*ʟMH)+2(ʟMB<0 and ʟMH<0)→ʟMT
-ʟMT+(ʟMT=0)(ʟMN>0)(2+ʟMN)→ʟMT
 If max(ʟMT)
 Then
 {ʟMT(1+sum(cumSum(ʟMT)=0))}→ʟMN
 Disp "BAD SHAPE/ROW:",1+sum(cumSum(ʟMT)=0)
-If ʟMN(1)=1
+If ʟMN(1)=1 and ʟMK(3)=1
 Disp "B OR H IS 0"
+If ʟMN(1)=1 and ʟMK(3)=2
+Disp "X1=X2 OR Y1=Y2"
 If ʟMN(1)=2
 Disp "B AND H BOTH <0"
-If ʟMN(1)=3 or ʟMN(1)=5
-Disp "X: B≠|X2-X1|"
-If ʟMN(1)=4 or ʟMN(1)=5
-Disp "Y: H≠|Y2-Y1|"
 Stop
 End
-{dim(ʟMB),1,1}→ʟMK
+{dim(ʟMB),1,ʟMK(3)}→ʟMK
 Lbl C
 ʟMB*ʟMH→ʟMA
 {sum(ʟMA)}→ʟMOA

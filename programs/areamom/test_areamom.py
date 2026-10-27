@@ -47,7 +47,8 @@ def reference(shapes):
 
 
 def start(calc, choice, inputs=(), settle=4.0):
-    """Launch AREAMOM, pick menu item 1 (MATRIX), 2 (TYPE CENTROIDS) or 3 (TYPE VERTICES), answer prompts."""
+    """Launch AREAMOM, pick menu item 1 (MAT: CENTROIDS), 2 (MAT: VERTICES),
+    3 (TYPE CENTROIDS) or 4 (TYPE VERTICES), answer prompts."""
     calc.run_program("AREAMOM", settle=0.5)
     calc.press("K%d" % choice)
     calc.run(1.5)
@@ -60,18 +61,20 @@ def start(calc, choice, inputs=(), settle=4.0):
 
 
 def typed(calc, inputs, settle=4.0):
-    return start(calc, 2, inputs, settle)
+    return start(calc, 3, inputs, settle)
 
 
 def corners(shape, flip=False):
-    """Two opposite corners (x1, y1, x2, y2) of the rectangle whose centroid is shape's."""
+    """Corners (x1, y1, x2, y2) of shape's rectangle. A solid uses the BL/TR
+    diagonal and a hole (b or h < 0) the TL/BR one; flip swaps corner 1 and 2."""
     b, h, x, y = shape
     dx, dy = abs(b) / 2, abs(h) / 2
-    return (x - dx, y + dy, x + dx, y - dy) if flip else (x - dx, y - dy, x + dx, y + dy)
+    c = (x - dx, y - dy, x + dx, y + dy) if b * h > 0 else (x - dx, y + dy, x + dx, y - dy)
+    return c[2:] + c[:2] if flip else c
 
 
 def vertex_rows(shapes, flip=False):
-    return [list(s[:2]) + list(corners(s, flip)) for s in shapes]
+    return [list(corners(s, flip)) for s in shapes]
 
 
 def pages(calc, first, n_shapes, settle=4.0):
@@ -93,9 +96,9 @@ def run(calc, shapes, settle=4.0):
 
 
 def run_vertices(calc, shapes, settle=4.0, flip=False):
-    """Type the shapes in as B, H, x1, y1, x2, y2 (menu item 3)."""
+    """Type the shapes in as x1, y1, x2, y2 (menu item 4)."""
     ins = [str(len(shapes))] + [num(v) for r in vertex_rows(shapes, flip) for v in r]
-    return pages(calc, start(calc, 3, ins, settle), len(shapes), settle)
+    return pages(calc, start(calc, 4, ins, settle), len(shapes), settle)
 
 
 def put(calc, letter, rows):
@@ -104,9 +107,9 @@ def put(calc, letter, rows):
 
 def run_matrix(calc, letter, shapes, settle=4.0, vertices=False, flip=False):
     """Store the shapes as matrix [letter] (rows = shapes; cols = b h x y, or
-    b h x1 y1 x2 y2 with vertices=True), use MATRIX."""
+    x1 y1 x2 y2 with vertices=True), use MAT: CENTROIDS or MAT: VERTICES."""
     put(calc, letter, vertex_rows(shapes, flip) if vertices else [list(s) for s in shapes])
-    return pages(calc, start(calc, 1, [letter], settle), len(shapes), settle)
+    return pages(calc, start(calc, 2 if vertices else 1, [letter], settle), len(shapes), settle)
 
 
 def value(line, label, end=16):
@@ -389,16 +392,21 @@ def test_other_vars_untouched_and_temps_cleaned(calc):
 def test_menu_offers_matrix_and_typing(calc):
     screen = calc.run_program("AREAMOM", settle=0.5)
     assert screen[0].strip() == "AREA MOMENTS", screen
-    assert "1:MATRIX" in screen[1] and "2:TYPE CENTROIDS" in screen[2], screen
-    assert "3:TYPE VERTICES" in screen[3], screen
+    assert screen[1:5] == ["1:MAT: CENTROIDS", "2:MAT: VERTICES",
+                           "3:TYPE CENTROIDS", "4:TYPE VERTICES"], screen
 
 
 def test_matrix_screen_explains_format(calc):
     screen = start(calc, 1, settle=0.5)
     assert screen[0] == "ROWS: SHAPES", screen
     assert screen[1] == "COL:B H X?* Y?*", screen
-    assert screen[2] == "OR:B H X1Y1X2Y2", screen
-    assert screen[3].startswith("MATRIX A-J?"), screen
+    assert screen[2].startswith("MATRIX A-J?"), screen
+
+
+def test_matrix_vertices_screen_explains_format_and_holes(calc):
+    screen = start(calc, 2, settle=0.5)
+    assert screen[:4] == ["ROWS: SHAPES", "COL:X1 Y1 X2 Y2", "SOLID: BL,TR", "HOLE:  TL,BR"], screen
+    assert screen[4].startswith("MATRIX A-J?"), screen
 
 
 def test_matrix_L_channel_same_as_typed(calc):
@@ -438,7 +446,7 @@ def test_matrix_bad_name(calc):
 def test_matrix_wrong_column_count(calc):
     put(calc, "E", [[10, 80, 0], [50, 10, 30]])
     screen = start(calc, 1, ["E"])
-    assert "4 OR 6 COLUMNS:" in screen, screen
+    assert "NEED 4 COLUMNS:" in screen and "B H X?* Y?*" in screen, screen
 
 
 def test_matrix_zero_dimension_names_row(calc):
@@ -460,7 +468,7 @@ def test_matrix_undefined(calc):
     assert calc.error() == "UNDEFINED"
 
 
-# --- vertex entry: B, H, x1, y1, x2, y2 ---------------------------------------
+# --- vertex entry: x1, y1, x2, y2; corner order picks solid or hole ----------
 
 def test_vertices_typed_match_centroids_L_channel(calc):
     cent = run(calc, L_CHANNEL)
@@ -470,12 +478,17 @@ def test_vertices_typed_match_centroids_L_channel(calc):
     assert vert == cent, (vert, cent)
 
 
-def test_vertices_typed_other_diagonal_and_holes(calc):
-    plate = [(100, 100, 0, 0), (-20, 40, 20, 10)]
-    check_all(run_vertices(calc, plate, flip=True), plate)
+def test_vertices_typed_TR_BL_is_also_solid(calc):
+    check_all(run_vertices(calc, L_CHANNEL, flip=True), L_CHANNEL)
+
+
+def test_vertices_typed_TL_BR_is_a_hole(calc):
+    plate = [(100, 100, 0, 0), (20, -40, 20, 10)]
+    screens = run_vertices(calc, plate)
+    check_all(screens, plate)
+    assert screens[1][0].endswith("⁻800"), screens[1]  # hole shows negative A
     calc.press("CLEAR")
-    plate_h = [(100, 100, 0, 0), (20, -40, 20, 10)]
-    check_all(run_vertices(calc, plate_h), plate_h)
+    check_all(run_vertices(calc, plate, flip=True), plate)  # BR then TL: same hole
 
 
 def test_vertices_typed_Z_section_and_small_values(calc):
@@ -485,8 +498,16 @@ def test_vertices_typed_Z_section_and_small_values(calc):
     check_all(run_vertices(calc, metres), metres)
 
 
+def test_vertex_screen_shows_hole_rule_and_four_prompts(calc):
+    screen = start(calc, 4, ["1"], settle=1)
+    assert screen[0].replace(" ", "") == "SHAPE1", screen
+    assert screen[1] == "SOLID: BL,TR" and screen[2] == "HOLE:  TL,BR", screen
+    assert screen[3].startswith("X1="), screen
+    assert not any(l.startswith(("B=", "H=")) for l in screen), screen
+
+
 def test_vertex_prompts_in_order_with_expressions(calc):
-    screen = start(calc, 3, ["1", "10", "20", "~5+0"], settle=1)
+    screen = start(calc, 4, ["1", "~5+0"], settle=1)
     assert any(l.startswith("Y1=") for l in screen), screen
     calc.type("0\n5*1\n20/1\n")
     calc.run(4)
@@ -498,6 +519,26 @@ def test_vertex_prompts_in_order_with_expressions(calc):
     t = calc.text()
     assert value(t[3], "x?*=") == "0", t     # (-5 + 5) / 2
     assert value(t[4], "y?*=") == "10", t    # (0 + 20) / 2
+
+
+def test_typed_vertices_zero_width_retypes(calc):
+    s = start(calc, 4, ["1", "3", "0", "3", "20"], settle=2)
+    assert "X1=X2 OR Y1=Y2" in s and "ENTER: RETYPE" in s, s
+    calc.press("ENTER")
+    calc.run(1.5)
+    s = calc.text()
+    assert s[0].replace(" ", "") == "SHAPE1" and s[3].startswith("X1="), s
+    for v in ["0", "0", "10", "20"]:
+        calc.type(v + "\n")
+        calc.run(1.5)
+    calc.run(4)
+    t = calc.text()
+    assert calc.error() is None and t[0].replace(" ", "") == "#1A=200", t
+
+
+def test_typed_vertices_zero_height_retypes(calc):
+    s = start(calc, 4, ["1", "0", "5", "10", "5"], settle=2)
+    assert "X1=X2 OR Y1=Y2" in s, s
 
 
 def test_matrix_vertices_same_as_typed_centroids(calc):
@@ -512,6 +553,8 @@ def test_matrix_vertices_Z_section_holes_flipped(calc):
     calc.press("CLEAR")
     plate = [(100, 100, 0, 0), (-20, 40, 20, 10), (10, -10, -30, -30)]
     check_all(run_matrix(calc, "B", plate, vertices=True), plate)
+    calc.press("CLEAR")
+    check_all(run_matrix(calc, "B", plate, vertices=True, flip=True), plate)
 
 
 def test_matrix_vertices_left_untouched(calc):
@@ -520,89 +563,35 @@ def test_matrix_vertices_left_untouched(calc):
     assert decode_matrix(calc.recv_var(T_MATRIX, b"\x5c\x03")) == rows
 
 
-def test_matrix_vertices_bad_row_still_named(calc):
-    put(calc, "G", [[10, 80, 0, 0, 10, 80], [50, 0, 30, 0, 80, 0], [5, 5, 0, 0, 5, 5]])
-    screen = start(calc, 1, ["G"])
+def test_matrix_vertices_zero_area_row_named(calc):
+    put(calc, "G", [[0, 0, 10, 80], [30, 0, 30, 10], [0, 0, 5, 5]])
+    screen = start(calc, 2, ["G"])
+    assert calc.error() is None, screen
     i = screen.index("BAD SHAPE/ROW:")
-    assert screen[i + 1].strip() == "2" and "B OR H IS 0" in screen, screen
+    assert screen[i + 1].strip() == "2" and "X1=X2 OR Y1=Y2" in screen, screen
 
 
-def test_matrix_five_columns_rejected(calc):
-    put(calc, "E", [[10, 80, 0, 0, 10], [50, 10, 30, 0, 80]])
-    assert "4 OR 6 COLUMNS:" in start(calc, 1, ["E"])
+def test_matrix_vertices_wrong_column_count(calc):
+    for rows in ([[0, 0, 10, 80, 1], [0, 0, 5, 5, 1]],
+                 [[10, 80, 0, 0, 10, 80], [5, 5, 0, 0, 5, 5]]):  # old B H X1 Y1 X2 Y2
+        calc.press("CLEAR")
+        put(calc, "E", rows)
+        screen = start(calc, 2, ["E"])
+        assert "NEED 4 COLUMNS:" in screen and "X1 Y1 X2 Y2" in screen, screen
+
+
+def test_matrix_centroids_six_columns_rejected(calc):
+    put(calc, "E", [[10, 80, 0, 0, 10, 80], [5, 5, 0, 0, 5, 5]])
+    assert "NEED 4 COLUMNS:" in start(calc, 1, ["E"])
 
 
 def test_vertex_mode_cleans_temp_lists(calc):
     run_vertices(calc, L_CHANNEL)
     calc.press("CLEAR")
     run_matrix(calc, "A", L_CHANNEL, vertices=True)
-    for tmp in [b"MV", b"MW", b"MK", b"MT"]:
+    for tmp in [b"MV", b"MW", b"MK", b"MT", b"MN"]:
         try:
             calc.recv_var(T_LIST, b"\x5d" + tmp)
         except Exception:
             continue
         raise AssertionError("temp list %r left behind" % tmp)
-
-
-# --- vertex mode: B/H must match the corners ------------------------------------
-
-def test_typed_vertices_x_mismatch_names_shape_and_axis(calc):
-    # shape 2: B=50 but corners are 60 apart in x (y is fine)
-    ins = ["2", "10", "80", "~5", "~5", "5", "75", "50", "10", "5", "~5", "65", "5"]
-    s = start(calc, 3, ins, settle=2)
-    assert s[0].replace(" ", "") == "SHAPE2ERROR", s
-    assert s[1] == "X: B≠|X2-X1|", s
-    assert s[2].replace(" ", "") == "B=50" and s[3].replace(" ", "") == "|X2-X1|=60", s
-    assert not any(l.startswith("Y:") for l in s), s
-    assert s[7] == "ENTER: RETYPE", s
-
-
-def test_typed_vertices_y_mismatch(calc):
-    s = start(calc, 3, ["1", "10", "20", "0", "0", "10", "25"], settle=2)
-    assert s[0].replace(" ", "") == "SHAPE1ERROR" and s[4] == "Y: H≠|Y2-Y1|", s
-    assert not any(l.startswith("X:") for l in s), s
-    assert s[5].replace(" ", "") == "H=20" and s[6].replace(" ", "") == "|Y2-Y1|=25", s
-
-
-def test_typed_vertices_both_axes_mismatch(calc):
-    s = start(calc, 3, ["1", "10", "20", "0", "0", "11", "21"], settle=2)
-    assert s[1].startswith("X:") and s[4].startswith("Y:"), s
-
-
-def test_typed_vertices_retype_after_error(calc):
-    ins = ["1", "10", "20", "0", "0", "12", "20"]
-    s = start(calc, 3, ins, settle=2)
-    assert s[1].startswith("X:"), s
-    calc.press("ENTER")        # retype the whole shape
-    calc.run(1.5)
-    assert any(l.startswith("B=") for l in calc.text()), calc.text()
-    for v in ["10", "20", "0", "0", "10", "20"]:
-        calc.type(v + "\n")
-        calc.run(1.5)
-    calc.run(4)
-    t = calc.text()
-    assert calc.error() is None and t[0].replace(" ", "") == "#1A=200", t
-
-
-def test_typed_vertices_holes_compare_magnitudes(calc):
-    plate = [(100, 100, 0, 0), (-20, 40, 20, 10)]
-    check_all(run_vertices(calc, plate), plate)        # B=-20 vs corners 20 apart: OK
-
-
-def test_matrix_vertices_mismatch_names_row_and_axis(calc):
-    rows = [[10, 80, -5, -5, 5, 75], [50, 10, 5, -5, 55, 5], [5, 5, 0, 0, 5, 6]]
-    put(calc, "F", rows)
-    s = start(calc, 1, ["F"])
-    i = s.index("BAD SHAPE/ROW:")
-    assert s[i + 1].strip() == "3" and "Y: H≠|Y2-Y1|" in s and not any(l.startswith("X:") for l in s), s
-    calc.press("CLEAR")
-    rows[2] = [5, 5, 0, 0, 6, 6]
-    put(calc, "F", rows)
-    s = start(calc, 1, ["F"])
-    assert s[s.index("BAD SHAPE/ROW:") + 1].strip() == "3" and "X: B≠|X2-X1|" in s and "Y: H≠|Y2-Y1|" in s, s
-    calc.press("CLEAR")
-    rows[2] = [5, 5, 0, 0, 5, 5]
-    rows[0] = [10, 80, -5, -5, 6, 75]
-    put(calc, "F", rows)
-    s = start(calc, 1, ["F"])
-    assert s[s.index("BAD SHAPE/ROW:") + 1].strip() == "1" and "X: B≠|X2-X1|" in s, s

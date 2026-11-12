@@ -127,6 +127,10 @@ DelVar ʟBPX:DelVar ʟBPY:DelVar ʟBPRX:DelVar ʟBPRY:DelVar ʟBPU:DelVar ʟBPV:
 End
 Repeat ʟBK(2)>ʟBK(3)
 ClrHome
+If ʟBK(2)=ʟBK(3) and ʟBK(2)=2
+Disp "","",""
+If ʟBK(2)=ʟBK(3) and ʟBK(2)=4
+Disp "","","",""
 If ʟBK(2)=1
 Then
 Output(1,1,"U=STRONG V=WEAK")
@@ -152,12 +156,12 @@ Output(1,1,"IN=INV(I),1/MM^4")
 Output(2,1,"IN11=")
 Output(3,1,"IN12=")
 Output(4,1,"IN22=")
-Output(5,1,"B11=")
-Output(6,1,"B12=")
-Output(7,1,"B21=")
-Output(8,1,"B22=")
+Output(5,1," B11=")
+Output(6,1," B12=")
+Output(7,1," B21=")
+Output(8,1," B22=")
 augment({0},ʟBINV)→ʟBFV
-{16,11,11,11,12,12,12,12}→ʟBFW
+{16,11,11,11,11,11,11,11}→ʟBFW
 {16,16,16,16,16,16,16,16}→ʟBFE
 {0,1,1,1,1,1,1,1}→ʟBFM
 End
@@ -187,7 +191,7 @@ Output(2,1,"NA=")
 Output(3,1,"CHK=")
 Output(4,1,"M_u=")
 Output(5,1,"M_v=")
-Output(6,1,"(M_u,M_v: N*M)")
+Output(6,1," (M_u,M_v: N*M)")
 Output(7,1,"θ,α:CCW FROM U")
 Output(8,1,"NA,ANG:CCW FRM X")
 {0,round(ʟBMOM(10),2),round(ʟBMOM(11),2),ʟBMOM(12),ʟBMOM(13),0,0,0}→ʟBFV

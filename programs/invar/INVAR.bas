@@ -59,7 +59,7 @@ max(1,ʟIVG-(ʟIVF>12)*max(1,ʟIVF-12))→ʟIVG
 End
 ClrHome
 Output(1,1,"INVARIANTS ["+Str1+"]")
-Output(2,1,"(IN ʟIVAR)")
+Output(8,1,"(IN ʟIVAR)")
 Output(3,1,"I_1=")
 Output(4,1,"I_2=")
 Output(5,1,"I_3=")

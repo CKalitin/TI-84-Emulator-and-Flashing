@@ -21,7 +21,7 @@ L_M = (-100, 100)
 L_PTS = [(-5, -5), (55, 5), (-5, 65)]
 
 SEC_LABELS = ["det=", "C=", "R=", "I_u=", "I_v=", "I_u/I_v=", "β="]
-INV_LABELS = ["IN11=", "IN12=", "IN22=", "B11=", "B12=", "B21=", "B22="]
+INV_LABELS = ["IN11=", "IN12=", "IN22=", " B11=", " B12=", " B21=", " B22="]
 MOM_LABELS = ["G_x=", "G_y=", "G_mag=", "M ANG=", "G ANG=", "θ=", "α="]
 NA_LABELS = ["NA=", "CHK=", "M_u=", "M_v="]
 PT_LABELS = ["r_x=", "r_y=", "u=", "v=", "σ_z=", "CHK="]
@@ -212,7 +212,7 @@ def check_all(screens, ref):
     s = screens[3]
     assert s[0] == "NEUTRAL AXIS", s
     check_rows(s, NA_LABELS, ref["na"], angles=(0, 1), scale=max(map(abs, ref["na"][2:])))
-    assert s[5] == "(M_u,M_v: N*M)" and s[7] == "NA,ANG:CCW FRM X", s
+    assert s[5] == " (M_u,M_v: N*M)" and s[7] == "NA,ANG:CCW FRM X", s
     pts = ref["pts"]
     if not pts:
         assert len(screens) == 4
@@ -238,12 +238,12 @@ def test_L_channel_matches_spec(calc):
     screens = run_typed(calc, L_SEC, L_M, L_PTS)
     ref = reference(L_SEC, L_M, L_PTS)
     check_all(screens, ref)
-    # spec's expected values, as printed
+    # spec's expected values, as printed (spec has α=-86.34; exact is -86.33494)
     s0, s2, s3 = screens[0], screens[2], screens[3]
     assert value(s0[4], "I_u=").startswith("983092") and value(s0[5], "I_v=").startswith("212428"), s0
     assert value(s0[7], "β=", 15) == "28.49", s0
     assert value(s2[5], "G ANG=", 15) == "⁻147.85", s2
-    assert value(s2[6], "θ=", 15) == "106.51" and value(s2[7], "α=", 15) == "⁻86.34", s2
+    assert value(s2[6], "θ=", 15) == "106.51" and value(s2[7], "α=", 15) == "⁻86.33", s2
     assert value(s3[1], "NA=", 15) == "⁻57.85" and value(s3[2], "CHK=", 15) == "⁻57.85", s3
     assert value(s3[3], "M_u=").startswith("⁻40.19") and value(s3[4], "M_v=").startswith("135.58"), s3
     a, b, d = screens[4:7]

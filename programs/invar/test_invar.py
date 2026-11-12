@@ -42,7 +42,8 @@ def run(calc, name, rows):
     screen = start(calc, name)
     assert calc.error() is None, screen
     assert screen[0] == "INVARIANTS [%s]" % name, screen
-    assert re.fullmatch(r"\(IN .IVAR\)", screen[1]), screen  # ʟ may not OCR
+    assert screen[1] in ("", "█"), screen  # the end-of-program cursor blinks here
+    assert re.fullmatch(r"\(IN .IVAR\)", screen[7]), screen  # ʟ may not OCR
     return screen
 
 
@@ -62,7 +63,7 @@ def to_float(txt):
 def shown_close(txt, want, scale):
     """`txt` is `want` rounded to the digits shown; ~0 relative to `scale` shows as 0."""
     got = to_float(txt)
-    if abs(want) < 1e-10 * scale:
+    if abs(want) <= 1e-10 * scale:
         assert got == 0, (txt, want)
         return
     mant = re.sub(r"ᴇ.*", "", txt).replace("⁻", "").replace(".", "").lstrip("0")
